@@ -77,14 +77,16 @@ export default function ParkingMap({ center, zoom, parkingLocations, searchLocat
         .addTo(markersRef.current);
     }
 
+    const esc = (s: string) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
     parkingLocations.forEach((p) => {
       const popup = `
         <div style="min-width:160px;font-size:14px">
-          <p style="font-weight:600;font-size:15px;margin:0 0 4px">${p.name}</p>
-          <p style="margin:2px 0">🏷️ ${p.fee}</p>
+          <p style="font-weight:600;font-size:15px;margin:0 0 4px">${esc(p.name)}</p>
+          <p style="margin:2px 0">🏷️ ${esc(p.fee)}</p>
           <p style="margin:2px 0">📌 ${p.type === "street" ? "Street Parking" : "Car Park"}</p>
           ${p.capacity ? `<p style="margin:2px 0">🚗 ${p.capacity} spaces</p>` : ""}
-          ${p.maxstay ? `<p style="margin:2px 0">⏱️ Max stay: ${p.maxstay}</p>` : ""}
+          ${p.maxstay ? `<p style="margin:2px 0">⏱️ Max stay: ${esc(p.maxstay)}</p>` : ""}
         </div>
       `;
       L.marker([p.lat, p.lng], { icon: parkingIcon })
