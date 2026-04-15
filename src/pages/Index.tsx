@@ -137,6 +137,7 @@ const Index = () => {
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {p.type === "street" ? "Street" : "Car Park"} · {p.fee}
                         {p.capacity ? ` · ${p.capacity} spaces` : ""}
+                        {p.maxstay ? ` · Max ${p.maxstay}` : ""}
                       </p>
                     </div>
                   </div>
