@@ -37,7 +37,7 @@ const Index = () => {
 
     const parking = await findFreeParking(loc.lat, loc.lng);
     if (parking.length === 0) {
-      setError("No free parking found nearby. Try a different postcode.");
+      setError("No free parking found nearby, or the parking server is busy. Try again or try a different postcode.");
     }
     setResults(parking);
     setPanelOpen(parking.length > 0);
