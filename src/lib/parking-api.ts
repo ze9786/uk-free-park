@@ -19,29 +19,60 @@ export async function geocodePostcode(postcode: string): Promise<{ lat: number; 
   }
 }
 
-export async function findFreeParking(lat: number, lng: number, radius = 2000): Promise<ParkingLocation[]> {
+const OVERPASS_SERVERS = [
+  "https://overpass-api.de/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter",
+  "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+];
+
+async function queryOverpass(query: string): Promise<any> {
+  const body = `data=${encodeURIComponent(query)}`;
+  const headers = { "Content-Type": "application/x-www-form-urlencoded" };
+
+  for (const server of OVERPASS_SERVERS) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 20000);
+
+      const res = await fetch(server, {
+        method: "POST",
+        body,
+        headers,
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+
+      if (!res.ok) continue;
+
+      const text = await res.text();
+      // Check it's actually JSON (not an HTML error page)
+      if (text.startsWith("{")) {
+        return JSON.parse(text);
+      }
+      continue;
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
+export async function findFreeParking(lat: number, lng: number, radius = 1500): Promise<ParkingLocation[]> {
+  // Simplified query — fewer unions = faster response
   const query = `
-    [out:json][timeout:15];
-    (
-      node["amenity"="parking"]["fee"="no"](around:${radius},${lat},${lng});
-      way["amenity"="parking"]["fee"="no"](around:${radius},${lat},${lng});
-      node["amenity"="parking"]["fee:conditional"](around:${radius},${lat},${lng});
-      way["amenity"="parking"]["fee:conditional"](around:${radius},${lat},${lng});
-      node["amenity"="parking"]["access"="yes"]["fee"!="yes"](around:${radius},${lat},${lng});
-      way["amenity"="parking"]["access"="yes"]["fee"!="yes"](around:${radius},${lat},${lng});
-    );
-    out center body;
-  `;
+[out:json][timeout:25];
+(
+  nwr["amenity"="parking"]["fee"="no"](around:${radius},${lat},${lng});
+  nwr["amenity"="parking"]["fee:conditional"](around:${radius},${lat},${lng});
+);
+out center body;
+`;
 
-  try {
-    const res = await fetch("https://overpass-api.de/api/interpreter", {
-      method: "POST",
-      body: `data=${encodeURIComponent(query)}`,
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    });
-    const data = await res.json();
+  const data = await queryOverpass(query);
+  if (!data?.elements) return [];
 
-    return data.elements.map((el: any, i: number) => {
+  return data.elements
+    .map((el: any, i: number) => {
       const elLat = el.lat ?? el.center?.lat;
       const elLng = el.lon ?? el.center?.lon;
       const tags = el.tags || {};
@@ -54,8 +85,6 @@ export async function findFreeParking(lat: number, lng: number, radius = 2000): 
         fee: tags["fee:conditional"] ? `Free (${tags["fee:conditional"]})` : "Free",
         capacity: tags.capacity ? parseInt(tags.capacity) : undefined,
       };
-    }).filter((p: ParkingLocation) => p.lat && p.lng);
-  } catch {
-    return [];
-  }
+    })
+    .filter((p: ParkingLocation) => p.lat && p.lng);
 }
