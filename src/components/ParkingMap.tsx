@@ -84,6 +84,7 @@ export default function ParkingMap({ center, zoom, parkingLocations, searchLocat
           <p style="margin:2px 0">🏷️ ${p.fee}</p>
           <p style="margin:2px 0">📌 ${p.type === "street" ? "Street Parking" : "Car Park"}</p>
           ${p.capacity ? `<p style="margin:2px 0">🚗 ${p.capacity} spaces</p>` : ""}
+          ${p.maxstay ? `<p style="margin:2px 0">⏱️ Max stay: ${p.maxstay}</p>` : ""}
         </div>
       `;
       L.marker([p.lat, p.lng], { icon: parkingIcon })
