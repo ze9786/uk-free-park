@@ -47,7 +47,11 @@ interface ParkingMapProps {
 
 export default function ParkingMap({ center, zoom, parkingLocations, searchLocation }: ParkingMapProps) {
   return (
-    <MapContainer center={center} zoom={zoom} className="h-full w-full z-0">
+    <MapContainer
+      center={center}
+      zoom={zoom}
+      style={{ width: "100%", height: "100%" }}
+    >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
