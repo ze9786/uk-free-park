@@ -1,5 +1,4 @@
-import { useEffect } from "react";
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { ParkingLocation } from "@/lib/parking-api";
@@ -30,14 +29,6 @@ const searchIcon = new L.Icon({
   shadowSize: [41, 41],
 });
 
-function MapUpdater({ center, zoom }: { center: [number, number]; zoom: number }) {
-  const map = useMap();
-  useEffect(() => {
-    map.setView(center, zoom);
-  }, [center, zoom, map]);
-  return null;
-}
-
 interface ParkingMapProps {
   center: [number, number];
   zoom: number;
@@ -46,30 +37,60 @@ interface ParkingMapProps {
 }
 
 export default function ParkingMap({ center, zoom, parkingLocations, searchLocation }: ParkingMapProps) {
-  return (
-    <MapContainer center={center} zoom={zoom} className="h-full w-full z-0">
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
-      <MapUpdater center={center} zoom={zoom} />
-      {searchLocation && (
-        <Marker position={[searchLocation.lat, searchLocation.lng]} icon={searchIcon}>
-          <Popup>📍 Your search location</Popup>
-        </Marker>
-      )}
-      {parkingLocations.map((p) => (
-        <Marker key={p.id} position={[p.lat, p.lng]} icon={parkingIcon}>
-          <Popup>
-            <div className="text-sm min-w-[160px]">
-              <p className="font-semibold text-base">{p.name}</p>
-              <p className="mt-1">🏷️ {p.fee}</p>
-              <p>📌 {p.type === "street" ? "Street Parking" : "Car Park"}</p>
-              {p.capacity && <p>🚗 {p.capacity} spaces</p>}
-            </div>
-          </Popup>
-        </Marker>
-      ))}
-    </MapContainer>
-  );
+  const mapRef = useRef<L.Map | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const markersRef = useRef<L.LayerGroup | null>(null);
+
+  // Initialize map
+  useEffect(() => {
+    if (!containerRef.current || mapRef.current) return;
+
+    const map = L.map(containerRef.current).setView(center, zoom);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    }).addTo(map);
+
+    markersRef.current = L.layerGroup().addTo(map);
+    mapRef.current = map;
+
+    return () => {
+      map.remove();
+      mapRef.current = null;
+    };
+  }, []);
+
+  // Update view
+  useEffect(() => {
+    if (mapRef.current) {
+      mapRef.current.setView(center, zoom);
+    }
+  }, [center, zoom]);
+
+  // Update markers
+  useEffect(() => {
+    if (!markersRef.current) return;
+    markersRef.current.clearLayers();
+
+    if (searchLocation) {
+      L.marker([searchLocation.lat, searchLocation.lng], { icon: searchIcon })
+        .bindPopup("📍 Your search location")
+        .addTo(markersRef.current);
+    }
+
+    parkingLocations.forEach((p) => {
+      const popup = `
+        <div style="min-width:160px;font-size:14px">
+          <p style="font-weight:600;font-size:15px;margin:0 0 4px">${p.name}</p>
+          <p style="margin:2px 0">🏷️ ${p.fee}</p>
+          <p style="margin:2px 0">📌 ${p.type === "street" ? "Street Parking" : "Car Park"}</p>
+          ${p.capacity ? `<p style="margin:2px 0">🚗 ${p.capacity} spaces</p>` : ""}
+        </div>
+      `;
+      L.marker([p.lat, p.lng], { icon: parkingIcon })
+        .bindPopup(popup)
+        .addTo(markersRef.current!);
+    });
+  }, [parkingLocations, searchLocation]);
+
+  return <div ref={containerRef} style={{ width: "100%", height: "100%" }} />;
 }
