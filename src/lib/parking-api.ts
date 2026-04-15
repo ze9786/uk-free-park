@@ -6,6 +6,7 @@ export interface ParkingLocation {
   type: "car_park" | "street";
   fee: string;
   capacity?: number;
+  maxstay?: string;
 }
 
 export async function geocodePostcode(postcode: string): Promise<{ lat: number; lng: number } | null> {
