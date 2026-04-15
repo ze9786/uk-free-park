@@ -6,6 +6,7 @@ export interface ParkingLocation {
   type: "car_park" | "street";
   fee: string;
   capacity?: number;
+  maxstay?: string;
 }
 
 export async function geocodePostcode(postcode: string): Promise<{ lat: number; lng: number } | null> {
@@ -84,6 +85,7 @@ out center body;
         type: tags.parking === "street_side" || tags.parking === "on_street" ? "street" : "car_park",
         fee: tags["fee:conditional"] ? `Free (${tags["fee:conditional"]})` : "Free",
         capacity: tags.capacity ? parseInt(tags.capacity) : undefined,
+        maxstay: tags.maxstay || undefined,
       };
     })
     .filter((p: ParkingLocation) => p.lat && p.lng);
