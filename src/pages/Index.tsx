@@ -142,6 +142,13 @@ const Index = () => {
           </div>
         </div>
       )}
+
+      {/* Footer disclaimer */}
+      <div style={{ position: "absolute", bottom: 0, left: 0, zIndex: 1000 }} className="px-3 py-2">
+        <p className="text-[10px] text-muted-foreground/70 bg-card/80 backdrop-blur-sm rounded px-2 py-1">
+          Data for guidance only. Always verify with physical signage.
+        </p>
+      </div>
     </div>
   );
 };
