@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, MapPin, Car, Loader2, ChevronUp, ChevronDown } from "lucide-react";
 import ParkingMap from "@/components/ParkingMap";
-import { geocodePostcode, findFreeParking, findPaidParking, type ParkingLocation } from "@/lib/parking-api";
+import { geocodeLocation, findFreeParking, findPaidParking, type ParkingLocation } from "@/lib/parking-api";
 
 const UK_CENTER: [number, number] = [53.5, -2.5];
 const DEFAULT_ZOOM = 6;
@@ -31,9 +31,9 @@ const Index = () => {
     setFreeResults([]);
     setPaidResults([]);
 
-    const loc = await geocodePostcode(pc);
+    const loc = await geocodeLocation(pc);
     if (!loc) {
-      setError("Invalid postcode. Please try again.");
+      setError("Could not find that location. Try a postcode or street name.");
       setLoading(false);
       return;
     }
@@ -88,7 +88,7 @@ const Index = () => {
               <Car className="h-5 w-5 text-primary shrink-0" />
             </div>
             <Input
-              placeholder="Enter UK postcode e.g. SW1A 1AA"
+              placeholder="Postcode or street name e.g. OX1 1AA"
               value={postcode}
               onChange={(e) => setPostcode(e.target.value)}
               className="flex-1 border-0 shadow-none focus-visible:ring-0"
