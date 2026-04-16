@@ -96,6 +96,7 @@ export default function ParkingMap({ center, zoom, parkingLocations, searchLocat
       // Fetch address on popup open
       marker.on("popupopen", async () => {
         const address = await reverseGeocode(p.lat, p.lng);
+        const streetViewUrl = `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${p.lat},${p.lng}`;
         const fullPopup = `
           <div style="min-width:160px;font-size:14px">
             <p style="font-weight:600;font-size:15px;margin:0 0 4px">${esc(p.name)}</p>
@@ -104,6 +105,7 @@ export default function ParkingMap({ center, zoom, parkingLocations, searchLocat
             ${p.capacity ? `<p style="margin:2px 0">🚗 ${p.capacity} spaces</p>` : ""}
             ${p.maxstay ? `<p style="margin:2px 0">⏱️ Max stay: ${esc(p.maxstay)}</p>` : ""}
             ${address ? `<p style="margin:4px 0 0;font-size:12px">📍 ${esc(address)}</p>` : ""}
+            <a href="${streetViewUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-block;margin-top:6px;padding:4px 10px;background:#3B82F6;color:#fff;border-radius:6px;font-size:12px;text-decoration:none;font-weight:500">🛣️ Street View</a>
           </div>
         `;
         marker.setPopupContent(fullPopup);
