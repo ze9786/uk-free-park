@@ -9,15 +9,36 @@ export interface ParkingLocation {
   maxstay?: string;
 }
 
-export async function geocodePostcode(postcode: string): Promise<{ lat: number; lng: number } | null> {
+export async function geocodeLocation(query: string): Promise<{ lat: number; lng: number } | null> {
+  // Try postcode API first (fast & accurate for UK postcodes)
   try {
-    const res = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(postcode)}`);
+    const res = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(query)}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.result) {
+        return { lat: data.result.latitude, lng: data.result.longitude };
+      }
+    }
+  } catch {
+    // not a postcode — fall through
+  }
+
+  // Fall back to Nominatim for street names / places
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query + ", UK")}&format=json&limit=1`,
+      { headers: { "User-Agent": "UKFreeParkingApp/1.0" } }
+    );
     if (!res.ok) return null;
     const data = await res.json();
-    return { lat: data.result.latitude, lng: data.result.longitude };
+    if (data.length > 0) {
+      return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+    }
   } catch {
-    return null;
+    // ignore
   }
+
+  return null;
 }
 
 const OVERPASS_SERVERS = [

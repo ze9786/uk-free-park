@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, MapPin, Car, Loader2, ChevronUp, ChevronDown } from "lucide-react";
 import ParkingMap from "@/components/ParkingMap";
-import { geocodePostcode, findFreeParking, findPaidParking, type ParkingLocation } from "@/lib/parking-api";
+import { geocodeLocation, findFreeParking, findPaidParking, type ParkingLocation } from "@/lib/parking-api";
 
 const UK_CENTER: [number, number] = [53.5, -2.5];
 const DEFAULT_ZOOM = 6;
