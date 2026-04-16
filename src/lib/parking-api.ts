@@ -46,7 +46,6 @@ async function queryOverpass(query: string): Promise<any> {
       if (!res.ok) continue;
 
       const text = await res.text();
-      // Check it's actually JSON (not an HTML error page)
       if (text.startsWith("{")) {
         return JSON.parse(text);
       }
@@ -58,8 +57,40 @@ async function queryOverpass(query: string): Promise<any> {
   return null;
 }
 
+function parseElements(elements: any[]): ParkingLocation[] {
+  return elements
+    .map((el: any, i: number) => {
+      const elLat = el.lat ?? el.center?.lat;
+      const elLng = el.lon ?? el.center?.lon;
+      const tags = el.tags || {};
+      const feeTag = tags.fee || "";
+      const feeConditional = tags["fee:conditional"] || "";
+      const charge = tags["charge"] || tags["fee:amount"] || "";
+
+      let feeLabel = "Free";
+      if (feeConditional) {
+        feeLabel = `Free (${feeConditional})`;
+      } else if (feeTag === "yes" || feeTag === "true") {
+        feeLabel = charge || "Paid";
+      } else if (feeTag && feeTag !== "no") {
+        feeLabel = feeTag;
+      }
+
+      return {
+        id: `${el.id}-${i}`,
+        name: tags.name || (tags.parking === "street_side" ? "Street Parking" : feeTag === "no" || !feeTag ? "Free Car Park" : "Car Park"),
+        lat: elLat,
+        lng: elLng,
+        type: (tags.parking === "street_side" || tags.parking === "on_street" ? "street" : "car_park") as "street" | "car_park",
+        fee: feeLabel,
+        capacity: tags.capacity ? parseInt(tags.capacity) : undefined,
+        maxstay: tags.maxstay || undefined,
+      };
+    })
+    .filter((p: ParkingLocation) => p.lat && p.lng);
+}
+
 export async function findFreeParking(lat: number, lng: number, radius = 1500): Promise<ParkingLocation[]> {
-  // Simplified query — fewer unions = faster response
   const query = `
 [out:json][timeout:25];
 (
@@ -71,22 +102,28 @@ out center body;
 
   const data = await queryOverpass(query);
   if (!data?.elements) return [];
+  return parseElements(data.elements);
+}
 
-  return data.elements
-    .map((el: any, i: number) => {
-      const elLat = el.lat ?? el.center?.lat;
-      const elLng = el.lon ?? el.center?.lon;
-      const tags = el.tags || {};
-      return {
-        id: `${el.id}-${i}`,
-        name: tags.name || (tags.parking === "street_side" ? "Street Parking" : "Free Car Park"),
-        lat: elLat,
-        lng: elLng,
-        type: tags.parking === "street_side" || tags.parking === "on_street" ? "street" : "car_park",
-        fee: tags["fee:conditional"] ? `Free (${tags["fee:conditional"]})` : "Free",
-        capacity: tags.capacity ? parseInt(tags.capacity) : undefined,
-        maxstay: tags.maxstay || undefined,
-      };
-    })
-    .filter((p: ParkingLocation) => p.lat && p.lng);
+export async function findPaidParking(lat: number, lng: number, radius = 1500): Promise<ParkingLocation[]> {
+  const query = `
+[out:json][timeout:25];
+(
+  nwr["amenity"="parking"]["fee"="yes"](around:${radius},${lat},${lng});
+  nwr["amenity"="parking"]["fee"~"^[0-9]"](around:${radius},${lat},${lng});
+);
+out center body;
+`;
+
+  const data = await queryOverpass(query);
+  if (!data?.elements) return [];
+
+  const results = parseElements(data.elements);
+
+  // Sort by fee — extract leading number if present, otherwise push to end
+  return results.sort((a, b) => {
+    const numA = parseFloat(a.fee.replace(/[^0-9.]/g, "")) || Infinity;
+    const numB = parseFloat(b.fee.replace(/[^0-9.]/g, "")) || Infinity;
+    return numA - numB;
+  });
 }
