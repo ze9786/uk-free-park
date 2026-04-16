@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { ParkingLocation } from "@/lib/parking-api";
+import { reverseGeocode } from "@/lib/parking-api";
 
 // Fix default marker icons
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -41,7 +42,6 @@ export default function ParkingMap({ center, zoom, parkingLocations, searchLocat
   const containerRef = useRef<HTMLDivElement>(null);
   const markersRef = useRef<L.LayerGroup | null>(null);
 
-  // Initialize map
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
@@ -59,14 +59,12 @@ export default function ParkingMap({ center, zoom, parkingLocations, searchLocat
     };
   }, []);
 
-  // Update view
   useEffect(() => {
     if (mapRef.current) {
       mapRef.current.setView(center, zoom);
     }
   }, [center, zoom]);
 
-  // Update markers
   useEffect(() => {
     if (!markersRef.current) return;
     markersRef.current.clearLayers();
@@ -80,18 +78,36 @@ export default function ParkingMap({ center, zoom, parkingLocations, searchLocat
     const esc = (s: string) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
     parkingLocations.forEach((p) => {
-      const popup = `
+      const loadingPopup = `
         <div style="min-width:160px;font-size:14px">
           <p style="font-weight:600;font-size:15px;margin:0 0 4px">${esc(p.name)}</p>
           <p style="margin:2px 0">🏷️ ${esc(p.fee)}</p>
           <p style="margin:2px 0">📌 ${p.type === "street" ? "Street Parking" : "Car Park"}</p>
           ${p.capacity ? `<p style="margin:2px 0">🚗 ${p.capacity} spaces</p>` : ""}
           ${p.maxstay ? `<p style="margin:2px 0">⏱️ Max stay: ${esc(p.maxstay)}</p>` : ""}
+          <p style="margin:4px 0 0;color:#888;font-size:12px">📍 Loading address…</p>
         </div>
       `;
-      L.marker([p.lat, p.lng], { icon: parkingIcon })
-        .bindPopup(popup)
+
+      const marker = L.marker([p.lat, p.lng], { icon: parkingIcon })
+        .bindPopup(loadingPopup)
         .addTo(markersRef.current!);
+
+      // Fetch address on popup open
+      marker.on("popupopen", async () => {
+        const address = await reverseGeocode(p.lat, p.lng);
+        const fullPopup = `
+          <div style="min-width:160px;font-size:14px">
+            <p style="font-weight:600;font-size:15px;margin:0 0 4px">${esc(p.name)}</p>
+            <p style="margin:2px 0">🏷️ ${esc(p.fee)}</p>
+            <p style="margin:2px 0">📌 ${p.type === "street" ? "Street Parking" : "Car Park"}</p>
+            ${p.capacity ? `<p style="margin:2px 0">🚗 ${p.capacity} spaces</p>` : ""}
+            ${p.maxstay ? `<p style="margin:2px 0">⏱️ Max stay: ${esc(p.maxstay)}</p>` : ""}
+            ${address ? `<p style="margin:4px 0 0;font-size:12px">📍 ${esc(address)}</p>` : ""}
+          </div>
+        `;
+        marker.setPopupContent(fullPopup);
+      });
     });
   }, [parkingLocations, searchLocation]);
 

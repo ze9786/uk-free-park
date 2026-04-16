@@ -7,10 +7,10 @@ export interface ParkingLocation {
   fee: string;
   capacity?: number;
   maxstay?: string;
+  address?: string;
 }
 
 export async function geocodeLocation(query: string): Promise<{ lat: number; lng: number } | null> {
-  // Try postcode API first (fast & accurate for UK postcodes)
   try {
     const res = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(query)}`);
     if (res.ok) {
@@ -23,7 +23,6 @@ export async function geocodeLocation(query: string): Promise<{ lat: number; lng
     // not a postcode — fall through
   }
 
-  // Fall back to Nominatim for street names / places
   try {
     const res = await fetch(
       `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query + ", UK")}&format=json&limit=1`,
@@ -39,6 +38,26 @@ export async function geocodeLocation(query: string): Promise<{ lat: number; lng
   }
 
   return null;
+}
+
+export async function reverseGeocode(lat: number, lng: number): Promise<string> {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=18`,
+      { headers: { "User-Agent": "UKFreeParkingApp/1.0" } }
+    );
+    if (!res.ok) return "";
+    const data = await res.json();
+    const addr = data.address || {};
+    const parts: string[] = [];
+    if (addr.road) parts.push(addr.road);
+    if (addr.suburb || addr.neighbourhood) parts.push(addr.suburb || addr.neighbourhood);
+    if (addr.city || addr.town || addr.village) parts.push(addr.city || addr.town || addr.village);
+    if (addr.postcode) parts.push(addr.postcode);
+    return parts.join(", ");
+  } catch {
+    return "";
+  }
 }
 
 const OVERPASS_SERVERS = [
@@ -84,22 +103,16 @@ function parseElements(elements: any[]): ParkingLocation[] {
       const elLat = el.lat ?? el.center?.lat;
       const elLng = el.lon ?? el.center?.lon;
       const tags = el.tags || {};
-      const feeTag = tags.fee || "";
       const feeConditional = tags["fee:conditional"] || "";
-      const charge = tags["charge"] || tags["fee:amount"] || "";
 
       let feeLabel = "Free";
       if (feeConditional) {
         feeLabel = `Free (${feeConditional})`;
-      } else if (feeTag === "yes" || feeTag === "true") {
-        feeLabel = charge || "Paid";
-      } else if (feeTag && feeTag !== "no") {
-        feeLabel = feeTag;
       }
 
       return {
         id: `${el.id}-${i}`,
-        name: tags.name || (tags.parking === "street_side" ? "Street Parking" : feeTag === "no" || !feeTag ? "Free Car Park" : "Car Park"),
+        name: tags.name || (tags.parking === "street_side" ? "Street Parking" : "Free Car Park"),
         lat: elLat,
         lng: elLng,
         type: (tags.parking === "street_side" || tags.parking === "on_street" ? "street" : "car_park") as "street" | "car_park",
@@ -124,27 +137,4 @@ out center body;
   const data = await queryOverpass(query);
   if (!data?.elements) return [];
   return parseElements(data.elements);
-}
-
-export async function findPaidParking(lat: number, lng: number, radius = 1500): Promise<ParkingLocation[]> {
-  const query = `
-[out:json][timeout:25];
-(
-  nwr["amenity"="parking"]["fee"="yes"](around:${radius},${lat},${lng});
-  nwr["amenity"="parking"]["fee"~"^[0-9]"](around:${radius},${lat},${lng});
-);
-out center body;
-`;
-
-  const data = await queryOverpass(query);
-  if (!data?.elements) return [];
-
-  const results = parseElements(data.elements);
-
-  // Sort by fee — extract leading number if present, otherwise push to end
-  return results.sort((a, b) => {
-    const numA = parseFloat(a.fee.replace(/[^0-9.]/g, "")) || Infinity;
-    const numB = parseFloat(b.fee.replace(/[^0-9.]/g, "")) || Infinity;
-    return numA - numB;
-  });
 }
