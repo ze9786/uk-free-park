@@ -97,6 +97,7 @@ export default function ParkingMap({ center, zoom, parkingLocations, searchLocat
       marker.on("popupopen", async () => {
         const address = await reverseGeocode(p.lat, p.lng);
         const streetViewUrl = `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${p.lat},${p.lng}`;
+        const btnId = `sv-btn-${p.id}-${Math.random().toString(36).slice(2, 8)}`;
         const fullPopup = `
           <div style="min-width:160px;font-size:14px">
             <p style="font-weight:600;font-size:15px;margin:0 0 4px">${esc(p.name)}</p>
@@ -105,10 +106,39 @@ export default function ParkingMap({ center, zoom, parkingLocations, searchLocat
             ${p.capacity ? `<p style="margin:2px 0">🚗 ${p.capacity} spaces</p>` : ""}
             ${p.maxstay ? `<p style="margin:2px 0">⏱️ Max stay: ${esc(p.maxstay)}</p>` : ""}
             ${address ? `<p style="margin:4px 0 0;font-size:12px">📍 ${esc(address)}</p>` : ""}
-            <a href="${streetViewUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-block;margin-top:6px;padding:4px 10px;background:#3B82F6;color:#fff;border-radius:6px;font-size:12px;text-decoration:none;font-weight:500">🛣️ Street View</a>
+            <button id="${btnId}" type="button" style="display:inline-block;margin-top:6px;padding:4px 10px;background:#3B82F6;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer">🛣️ Street View</button>
           </div>
         `;
         marker.setPopupContent(fullPopup);
+
+        setTimeout(() => {
+          const btn = document.getElementById(btnId);
+          if (!btn) return;
+          btn.addEventListener("click", async () => {
+            btn.textContent = "⏳ Checking…";
+            (btn as HTMLButtonElement).disabled = true;
+            try {
+              // Use Street View Image Metadata API (no key required for status check via public endpoint)
+              const res = await fetch(
+                `https://maps.googleapis.com/maps/api/streetview/metadata?location=${p.lat},${p.lng}&radius=50`
+              );
+              const data = await res.json();
+              if (data.status === "OK") {
+                window.open(streetViewUrl, "_blank", "noopener,noreferrer");
+                btn.textContent = "🛣️ Street View";
+                (btn as HTMLButtonElement).disabled = false;
+              } else {
+                btn.textContent = "🚫 No Street View available";
+                btn.style.background = "#9CA3AF";
+              }
+            } catch {
+              // On failure, fall back to opening the link
+              window.open(streetViewUrl, "_blank", "noopener,noreferrer");
+              btn.textContent = "🛣️ Street View";
+              (btn as HTMLButtonElement).disabled = false;
+            }
+          });
+        }, 0);
       });
     });
   }, [parkingLocations, searchLocation]);
