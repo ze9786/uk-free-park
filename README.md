@@ -9,11 +9,6 @@ This project aims to provide a platform for users to find free parking spots in 
 - **Map integration**: Visual representation of parking locations.
 - **Search functionality**: Users can search for parking spots based on different criteria (location, availability, etc.).
 
-## Tech Stack
-- **Frontend**: React.js
-- **Backend**: Node.js, Express
-- **Database**: MongoDB
-- **Hosting**: Heroku
 
 ## Getting Started Instructions
 1. Clone the repository:
